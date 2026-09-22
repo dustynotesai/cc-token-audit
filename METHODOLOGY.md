@@ -394,9 +394,13 @@ share = delta * event.approx // total_approx
 
 同一個 session 內，同樣的「工具 + 目標」第二次以後的讀取。
 
-- **只算唯讀工具**：Read、Grep、Glob、NotebookRead、WebFetch、Bash、PowerShell
-- **排除 Edit / Write**：反覆修改同一個檔案是正常工作，不是重複
-- **假設**：期間檔案沒有變動
+- **只算唯讀工具**：Read、Grep、Glob、NotebookRead、WebFetch。
+  **Bash / PowerShell 不算**：同一條指令跑兩次（`git status`、修完再跑一次測試）
+  本來就會拿到不同的結果，那不是重複讀。
+- **目標用完整路徑比對**，不用檔名。不同資料夾的 `README.md`、`episode.md` 是不同的檔。
+- **中間有 Edit / Write 過那個檔，計數歸零**：改完再讀一次是正常工作，
+  只有「沒改過又再讀」才算重複。
+- **假設**：兩次讀取之間，工具沒看到的變動（例如你手動改檔）不會被偵測到。
 
 計入的是**第二次以後那幾筆的完整攜帶成本**。
 
@@ -499,7 +503,7 @@ base_usd = sum(cap_context(th, NO_CAP, rebuild) for th in threads)
 |---|---|---|
 | 歸因保真度 | 99–101% | 單筆 delta 在事件間的比例拆分是估計 |
 | 模擬 vs 實測 | 約 90% | 模擬不重現快取過期造成的重寫 |
-| token 估計 | 相消 | 4 字元／token，只影響比例不影響總量 |
+| token 估計 | 只影響分配 | CJK 每字 1 token、其他 4 字元／token；只影響事件之間怎麼分，不影響總量 |
 
 ### 怎麼自己驗
 

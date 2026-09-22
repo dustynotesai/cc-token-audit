@@ -17,8 +17,11 @@ from dataclasses import dataclass, field
 
 DEFAULT_ROOT = os.path.join(os.path.expanduser("~"), ".claude", "projects")
 
-# chars per token, for splitting a measured delta across the events that caused
-# it. Only the ratio between events matters, so the constant cancels out.
+# Rough chars-per-token for non-CJK text. CJK characters are counted as one
+# token each: a Chinese message is ~1 token per character, code is ~4 chars per
+# token, and sessions here mix both -- a flat divisor would blame code for
+# tokens that Chinese text actually consumed. The split is proportional, so
+# what matters is that the ratio between events is right, not the constant.
 CHARS_PER_TOKEN = 4
 
 _EMPTY_RESULT_MARKERS = (
@@ -31,8 +34,9 @@ class Event:
     kind: str                 # tool_result | assistant_output | user_message | attachment | system
     approx: int               # estimated tokens, used only for proportional splitting
     tool: str = ""
-    target: str = ""
+    target: str = ""          # short handle for display (basename, clipped command)
     ok: bool = True
+    key: str = ""             # full identifier for de-duplication (full path, full command)
 
     @property
     def label(self):
@@ -55,7 +59,8 @@ class Turn:
     thinking: int = 0
     sidechain: bool = False
     events: list = field(default_factory=list)
-    out_chars: int = 0
+    out_chars: int = 0        # raw characters of assistant output
+    out_est: int = 0          # estimated tokens of assistant output (CJK-aware)
 
     @property
     def ctx(self):
@@ -93,19 +98,50 @@ class Session:
         return self.turns[-1].ts if self.turns else ""
 
 
-def _approx(obj):
+def _is_cjk(ch):
+    o = ord(ch)
+    return (0x3000 <= o <= 0x9FFF or 0xAC00 <= o <= 0xD7AF
+            or 0xF900 <= o <= 0xFAFF or 0xFF00 <= o <= 0xFFEF)
+
+
+def _text(obj):
     if obj is None:
-        return 0
+        return ""
     if isinstance(obj, str):
-        return len(obj) // CHARS_PER_TOKEN
+        return obj
     try:
-        return len(json.dumps(obj, ensure_ascii=False)) // CHARS_PER_TOKEN
+        return json.dumps(obj, ensure_ascii=False)
     except (TypeError, ValueError):
-        return len(str(obj)) // CHARS_PER_TOKEN
+        return str(obj)
+
+
+def _approx(obj):
+    """Estimated tokens: CJK chars count 1 each, everything else ~4 chars/token."""
+    text = _text(obj)
+    cjk = sum(1 for ch in text if _is_cjk(ch))
+    return cjk + (len(text) - cjk) // CHARS_PER_TOKEN
+
+
+def _key(name, inp):
+    """Full identifier of what a tool acted on, for de-duplication. Two files
+    that share a basename in different directories must not collide."""
+    if not isinstance(inp, dict):
+        return ""
+    for key in ("file_path", "notebook_path", "path"):
+        if inp.get(key):
+            return os.path.normcase(os.path.normpath(str(inp[key])))
+    if inp.get("command"):
+        return " ".join(str(inp["command"]).split())
+    if inp.get("pattern"):
+        scope = inp.get("path") or inp.get("glob") or ""
+        return str(inp["pattern"]) + "@" + str(scope)
+    if inp.get("url"):
+        return str(inp["url"])
+    return ""
 
 
 def _target(name, inp):
-    """A short human handle for what a tool acted on."""
+    """A short human handle for what a tool acted on (display only)."""
     if not isinstance(inp, dict):
         return ""
     for key in ("file_path", "notebook_path", "path"):
@@ -160,8 +196,8 @@ def parse_session(path, project=""):
     cur = None
 
     def flush(turn):
-        if turn is not None and turn.out_chars:
-            pending.append(Event("assistant_output", turn.out_chars // CHARS_PER_TOKEN))
+        if turn is not None and turn.out_est:
+            pending.append(Event("assistant_output", turn.out_est))
 
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -219,11 +255,13 @@ def parse_session(path, project=""):
                 for blk in msg.get("content") or []:
                     if not isinstance(blk, dict):
                         continue
-                    cur.out_chars += _approx(blk) * CHARS_PER_TOKEN
+                    cur.out_chars += len(_text(blk))
+                    cur.out_est += _approx(blk)
                     if blk.get("type") == "tool_use":
                         tools[blk.get("id")] = (
                             blk.get("name", "?"),
                             _target(blk.get("name"), blk.get("input")),
+                            _key(blk.get("name"), blk.get("input")),
                         )
                 continue
 
@@ -236,10 +274,11 @@ def parse_session(path, project=""):
                         if not isinstance(blk, dict):
                             continue
                         if blk.get("type") == "tool_result":
-                            name, target = tools.pop(blk.get("tool_use_id"), ("?", ""))
+                            name, target, key = tools.pop(
+                                blk.get("tool_use_id"), ("?", "", ""))
                             size = max(_approx(blk), _approx(tur))
                             pending.append(Event("tool_result", size, tool=name,
-                                                 target=target,
+                                                 target=target, key=key,
                                                  ok=_result_ok(blk, tur)))
                         else:
                             pending.append(Event("user_message", _approx(blk)))

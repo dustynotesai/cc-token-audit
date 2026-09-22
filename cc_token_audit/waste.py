@@ -13,11 +13,12 @@ from dataclasses import dataclass, field
 from .i18n import t
 
 # Tools whose result is a pure read of existing state. Running one twice on the
-# same target in one session yields the same bytes twice. Edit/Write are
-# excluded: touching a file repeatedly is normal work, not duplication.
-READ_ONLY_TOOLS = {
-    "Read", "Grep", "Glob", "NotebookRead", "WebFetch", "Bash", "PowerShell",
-}
+# same target in one session yields the same bytes twice -- unless the file was
+# written in between, which WRITE_TOOLS resets. Bash/PowerShell are not here:
+# the same command run twice (git status, a test suite after a fix) legitimately
+# returns different output.
+READ_ONLY_TOOLS = {"Read", "Grep", "Glob", "NotebookRead", "WebFetch"}
+WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
 OVERSIZED_TOKENS = 10_000
 
@@ -35,18 +36,28 @@ class Finding:
         return self.usd < other.usd
 
 
+def _ident(e):
+    return e.key or e.target
+
+
 def _dup_key(charge):
     e = charge.event
-    if e.kind != "tool_result" or e.tool not in READ_ONLY_TOOLS or not e.target:
+    if e.kind != "tool_result" or e.tool not in READ_ONLY_TOOLS or not _ident(e):
         return None
-    return (e.tool, e.target)
+    return (e.tool, _ident(e))
 
 
 def duplicate_reads(analysis):
-    """Second and later reads of the same target in one conversation."""
+    """Second and later reads of the same target in one conversation. A write
+    to that target in between makes the next read legitimate again."""
     seen = set()
     dups = []
     for c in sorted(analysis.charges, key=lambda c: c.turn):
+        e = c.event
+        if e.kind == "tool_result" and e.tool in WRITE_TOOLS and _ident(e):
+            written = _ident(e)
+            seen = {k for k in seen if k[1] != written}
+            continue
         key = _dup_key(c)
         if key is None:
             continue

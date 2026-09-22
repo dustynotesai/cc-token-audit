@@ -37,6 +37,7 @@ def header(scanned, turns, span, fidelity):
         "=" * W,
         "  " + t("scanned", sessions=scanned, turns=turns, span=span),
         "  " + t("fidelity", pct=fidelity * 100),
+        "  " + t("scope_machine"),
         "",
     ]
 
@@ -59,6 +60,23 @@ def bill(tok, usd):
     if total_t:
         cr = 100 * tok.get("cache read", 0) / total_t
         out += ["  " + ln for ln in lines("bill_note", pct=cr)]
+    out.append("")
+    return out
+
+
+def by_model(rows):
+    """The bill split by model. Tokens are not comparable across models, so a
+    total that mixes them says nothing about which model the money went to."""
+    out = [rule(t("model_head")), ""]
+    out.append("  " + pad(t("col_model"), 20) + pad(t("col_turns"), 7, ">")
+               + pad(t("col_read"), 15, ">") + pad(t("col_write"), 13, ">")
+               + pad(t("col_out"), 11, ">") + " " + pad(t("col_usd"), 11, ">"))
+    for m, r in rows:
+        out.append(f"  {pad(clip(m, 20), 20)}{r['turns']:>7}"
+                   f"{r['cache read']:>15,}{r['cache write']:>13,}"
+                   f"{r['output']:>11,} {pad(money(r['usd']), 11, '>')}")
+    out.append("")
+    out += ["  " + ln for ln in lines("model_note")]
     out.append("")
     return out
 

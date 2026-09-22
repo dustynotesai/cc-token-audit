@@ -174,6 +174,17 @@ STRINGS = {
         ],
         "footer_rates": "費率來源：platform.claude.com/docs/en/about-claude/pricing（2026-09-22）",
 
+        "scope_machine": "只涵蓋這台電腦上的 session 紀錄；claude.ai、手機、其他裝置的用量不在裡面。",
+        "model_head": "分模型",
+        "col_model": "模型",
+        "col_read": "快取讀取",
+        "col_write": "快取寫入",
+        "col_out": "輸出",
+        "model_note": [
+            "不同模型的 token 不等價：官方說 Opus 每一輪比 Sonnet 貴數倍。",
+            "上面的總 token 數只能看規模；要比較模型之間的花費，看這張表。",
+        ],
+
         "cli.desc": "把你的 Claude Code 快取讀取帳單，追回到究竟是什麼造成的。",
         "cli.epilog": (
             "ccusage 那類工具告訴你花了多少錢、什麼時候花的。\n"
@@ -357,6 +368,19 @@ STRINGS = {
         ],
         "footer_rates": "Rates: platform.claude.com/docs/en/about-claude/pricing "
                         "(2026-09-22)",
+
+        "scope_machine": "Covers the session logs on this machine only; claude.ai, "
+                         "mobile and other devices are not included.",
+        "model_head": "By model",
+        "col_model": "model",
+        "col_read": "cache read",
+        "col_write": "cache write",
+        "col_out": "output",
+        "model_note": [
+            "Tokens are not comparable across models: Anthropic states Opus costs",
+            "several times Sonnet per turn. The totals above give scale; compare",
+            "models here.",
+        ],
 
         "cli.desc": "Trace your Claude Code cache-read bill back to what caused it.",
         "cli.epilog": (

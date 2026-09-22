@@ -55,12 +55,33 @@ def _totals(analyses):
     return tok, usd
 
 
+def _by_model(analyses):
+    """Tokens and USD per model. Opus costs several times Sonnet per turn, so a
+    single summed token count would hide which model the bill came from."""
+    rows = {}
+    for an in analyses:
+        for turn in an.turns:
+            m = turn.model or "?"
+            r = pricing.rate_for(m)
+            row = rows.setdefault(m, collections.Counter())
+            row["turns"] += 1
+            row["cache read"] += turn.read
+            row["cache write"] += turn.write
+            row["input"] += turn.inp
+            row["output"] += turn.out
+            row["usd"] += (turn.read * r.read + turn.write_5m * r.write_5m
+                           + turn.write_1h * r.write_1h + turn.inp * r.inp
+                           + turn.out * r.out) / pricing.M
+    return sorted(rows.items(), key=lambda kv: -kv[1]["usd"])
+
+
 def cmd_audit(args):
     sessions, analyses = _collect(args)
     if not sessions:
         raise SystemExit(t("err.no_sessions", root=args.root or DEFAULT_ROOT))
 
     tok, usd = _totals(analyses)
+    models = _by_model(analyses)
     total_usd = sum(usd.values())
     turns = sum(len(a.turns) for a in analyses)
     read_actual = sum(a.actual_read_tokens for a in analyses)
@@ -94,6 +115,7 @@ def cmd_audit(args):
             "sessions": len(sessions), "turns": turns, "span": span,
             "fidelity": fidelity,
             "tokens": dict(tok), "usd": dict(usd), "total_usd": total_usd,
+            "by_model": [dict(row, model=m) for m, row in models],
             "findings": [{"category": f.category, "usd": f.usd,
                           "tokens": f.tokens, "detail": f.detail,
                           "assumption": f.assumption} for f in finds],
@@ -108,6 +130,7 @@ def cmd_audit(args):
 
     out = report.header(len(sessions), turns, span, fidelity)
     out += report.bill(tok, usd)
+    out += report.by_model(models)
     out += report.attribution(charges, total_usd)
     out += report.findings_block(finds, total_usd)
     if scen:
