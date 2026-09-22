@@ -201,6 +201,24 @@ STRINGS = {
         "live.restart_now": "⚠ 重開撐 {n} 輪回本",
         "live.restart_soon": "重開撐 {n} 輪回本",
         "live.cache_cold": "快取 {mins} 分後過期，屆時重付 {usd}",
+
+        "cli.verify": "自我驗證：內部恆等式 + 跟 ccusage 對帳",
+        "verify.head": "驗證",
+        "verify.internal": "內部檢查",
+        "verify.external": "跟 ccusage 對帳（獨立的第三方工具，讀同一批 log）",
+        "verify.cols": "{check}{ours}{theirs}{drift}",
+        "verify.no_ccusage": [
+            "跑不起來 ccusage，跳過外部對帳。",
+            "要自己比對的話：npx ccusage@latest claude --json",
+        ],
+        "verify.pass": "通過",
+        "verify.fail": "不符",
+        "verify.note": [
+            "Claude Code 還在跑的時候，兩邊讀到的是移動中的目標，",
+            "所以 1% 以內的落差是正常的——那只是兩次掃描之間又多了幾個 turn。",
+        ],
+        "verify.verdict_ok": "全部通過。",
+        "verify.verdict_bad": "有 {n} 項不符，別直接採信這份報告的數字。",
     },
 
     "en": {
@@ -369,6 +387,24 @@ STRINGS = {
         "live.restart_now": "⚠ restart pays back in {n} turns",
         "live.restart_soon": "restart pays back in {n} turns",
         "live.cache_cold": "cache cold in {mins}m, then {usd} to rebuild",
+
+        "cli.verify": "self-check: the internal identity, and totals vs ccusage",
+        "verify.head": "VERIFY",
+        "verify.internal": "internal checks",
+        "verify.external": "against ccusage (independent tool, same logs)",
+        "verify.cols": "{check}{ours}{theirs}{drift}",
+        "verify.no_ccusage": [
+            "Could not run ccusage; skipping the external check.",
+            "To compare by hand: npx ccusage@latest claude --json",
+        ],
+        "verify.pass": "pass",
+        "verify.fail": "differs",
+        "verify.note": [
+            "While Claude Code is running both tools read a moving target, so a",
+            "drift under 1% is expected -- turns land between the two passes.",
+        ],
+        "verify.verdict_ok": "All checks passed.",
+        "verify.verdict_bad": "{n} check(s) differ; do not trust these figures yet.",
     },
 }
 

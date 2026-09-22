@@ -202,6 +202,20 @@ def parse_session(path, project=""):
                     sess.session_id = sess.session_id or rec.get("sessionId", "")
                     sess.cwd = sess.cwd or rec.get("cwd", "")
                     sess.branch = sess.branch or rec.get("gitBranch", "")
+                else:
+                    # The duplicate records are streaming snapshots, and
+                    # `output_tokens` grows as generation proceeds -- the first
+                    # copy reports only what had been produced when that block
+                    # was written. The input side is fixed at request time and
+                    # is identical in every copy, so only the output figures
+                    # need to advance. Reading the first snapshot understated
+                    # output by ~9.5% against ccusage.
+                    u = msg.get("usage") or {}
+                    cur.out = max(cur.out, u.get("output_tokens", 0) or 0)
+                    cur.thinking = max(cur.thinking, (
+                        u.get("output_tokens_details") or {}
+                    ).get("thinking_tokens", 0) or 0)
+
                 for blk in msg.get("content") or []:
                     if not isinstance(blk, dict):
                         continue

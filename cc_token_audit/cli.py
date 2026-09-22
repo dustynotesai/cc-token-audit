@@ -11,7 +11,7 @@ import os
 import sys
 import time
 
-from . import carry, i18n, live, pricing, report, simulate, waste
+from . import carry, i18n, live, pricing, report, simulate, verify, waste
 from .i18n import t
 from .loader import DEFAULT_ROOT, parse_session, walk
 
@@ -214,6 +214,61 @@ def _preselect_lang(argv):
     return i18n.DEFAULT_LANG
 
 
+def cmd_verify(args):
+    """Evidence, not reassurance: re-derive our own totals and put them next to
+    an independent tool's reading of the same logs."""
+    sessions, analyses = _collect(args)
+    if not sessions:
+        raise SystemExit(t("err.no_sessions", root=args.root or DEFAULT_ROOT))
+    tok, _usd = _totals(analyses)
+
+    checks = [verify.internal(analyses),
+              verify.per_session_sums(analyses, tok["cache read"])]
+
+    print()
+    print(report.rule(t("verify.head")))
+    print()
+    print("  " + t("verify.internal"))
+    _print_checks(checks)
+
+    print()
+    print("  " + t("verify.external"))
+    totals = verify.run_ccusage()
+    if totals is None:
+        for ln in i18n.lines("verify.no_ccusage"):
+            print("    " + ln)
+    else:
+        ext = verify.against_ccusage(tok, totals)
+        _print_checks(ext)
+        checks += ext
+
+    print()
+    for ln in i18n.lines("verify.note"):
+        print("  " + ln)
+    bad = [c for c in checks if not c["ok"]]
+    print()
+    print("  " + (t("verify.verdict_ok") if not bad
+                  else t("verify.verdict_bad", n=len(bad))))
+    print()
+    return 0 if not bad else 1
+
+
+def _print_checks(checks):
+    head = (f"    {i18n.pad('', 20)}{i18n.pad('cc-token-audit', 18, '>')}"
+            f"{i18n.pad('ccusage / actual', 18, '>')}"
+            f"{i18n.pad('drift', 10, '>')}")
+    print(head)
+    for c in checks:
+        mark = t("verify.pass") if c["ok"] else t("verify.fail")
+        ours = f"{c['ours']:,}"
+        theirs = f"{c['theirs']:,}"
+        drift = f"{c['drift'] * 100:+.2f}%"
+        print(f"    {i18n.pad(i18n.clip(c['name'], 20), 20)}"
+              f"{i18n.pad(ours, 18, '>')}{i18n.pad(theirs, 18, '>')}"
+              f"{i18n.pad(drift, 10, '>')}  {mark}")
+
+
+
 def cmd_statusline(args):
     """Claude Code pipes session JSON in on stdin and prints whatever comes out.
     It must stay fast and must never crash the status line, so any failure
@@ -260,6 +315,9 @@ def build_parser():
 
     sl = sub.add_parser("statusline", parents=[common], help=t("cli.statusline"))
     sl.set_defaults(func=cmd_statusline)
+
+    v = sub.add_parser("verify", parents=[common], help=t("cli.verify"))
+    v.set_defaults(func=cmd_verify)
     return p
 
 

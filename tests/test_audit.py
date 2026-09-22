@@ -77,6 +77,23 @@ class TestDeduplication(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_output_tokens_take_the_last_snapshot(self):
+        """The duplicate records are streaming snapshots and output_tokens grows
+        across them. Reading the first copy understated output by 9.5% against
+        ccusage; the input side is fixed at request time and must not move."""
+        recs = [
+            assistant("m1", 500, 1000, out=10),
+            assistant("m1", 500, 1000, out=120),
+            assistant("m1", 500, 1000, out=350),
+        ]
+        path = write_log(recs)
+        try:
+            turn = parse_session(path).turns[0]
+            self.assertEqual(turn.out, 350)
+            self.assertEqual(turn.ctx, 1500)      # input side unchanged
+        finally:
+            os.unlink(path)
+
     def test_content_blocks_are_merged_across_copies(self):
         recs = [
             assistant("m1", 0, 1000, blocks=[{"type": "text", "text": "x" * 400}]),
