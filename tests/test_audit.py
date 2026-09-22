@@ -12,7 +12,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cc_token_audit import carry, live, pricing, simulate, waste   # noqa: E402
+from cc_token_audit import (carry, live, pricing, simulate,       # noqa: E402
+                            subagent, waste)
 from cc_token_audit.loader import parse_session                      # noqa: E402
 
 
@@ -333,6 +334,72 @@ class TestLiveStatusline(unittest.TestCase):
         import io
         self.assertEqual(live.main(io.StringIO("not json")), "")
         self.assertEqual(live.main(io.StringIO("[1,2,3]")), "")
+
+
+class TestSubagents(unittest.TestCase):
+    """Subagent transcripts are separate files keyed to the parent by sessionId,
+    and the question about them is structural, not whether they were wasteful."""
+
+    def _write(self, turns, subdir=None, sid="s1"):
+        import tempfile
+        root = tempfile.mkdtemp()
+        d = os.path.join(root, "C--proj")
+        if subdir:
+            d = os.path.join(d, sid, "subagents")
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, ("agent-a.jsonl" if subdir else f"{sid}.jsonl"))
+        with open(path, "w", encoding="utf-8") as fh:
+            for i, (read, write, ts) in enumerate(turns):
+                rec = assistant(f"{'a' if subdir else 'm'}{i}", read, write, ts=ts)
+                rec["sessionId"] = sid
+                fh.write(json.dumps(rec) + chr(10))
+        return root, path
+
+    def test_subagent_file_reports_its_real_project(self):
+        from cc_token_audit.loader import project_of
+        p = os.path.join("x", "C--proj", "abc", "subagents", "agent-a.jsonl")
+        self.assertEqual(project_of(p), "C--proj")
+        q = os.path.join("x", "C--proj", "abc.jsonl")
+        self.assertEqual(project_of(q), "C--proj")
+
+    def test_subagent_content_is_charged_against_the_parents_remaining_turns(self):
+        import shutil
+        proot, _ = self._write([(0, 1000, "2026-09-01T10:00:00Z"),
+                                (1000, 100, "2026-09-01T10:05:00Z"),
+                                (1100, 100, "2026-09-01T10:10:00Z")])
+        parent = parse_session(os.path.join(proot, "C--proj", "s1.jsonl"))
+        sroot, _ = self._write([(0, 5000, "2026-09-01T10:01:00Z"),
+                                (5000, 9000, "2026-09-01T10:02:00Z")],
+                               subdir=True)
+        child = parse_session(
+            os.path.join(sroot, "C--proj", "s1", "subagents", "agent-a.jsonl"))
+        try:
+            inline, threads = subagent.inline_cost(parent, [child])
+            self.assertEqual(threads, 1)
+            # The child's opening context is excluded (the parent already has
+            # it); the 9,000-token second delta is charged against the two
+            # parent turns that follow it.
+            self.assertGreater(inline, 0)
+            r = pricing.rate_for("claude-opus-5")
+            expected = 9000 * (r.write_1h + 2 * r.read) / pricing.M
+            self.assertAlmostEqual(inline, expected, places=9)
+        finally:
+            shutil.rmtree(proot, ignore_errors=True)
+            shutil.rmtree(sroot, ignore_errors=True)
+
+    def test_a_subagent_with_no_parent_is_counted_but_not_charged(self):
+        import shutil
+        sroot, _ = self._write([(0, 5000, "2026-09-01T10:01:00Z")],
+                               subdir=True, sid="orphan")
+        child = parse_session(
+            os.path.join(sroot, "C--proj", "orphan", "subagents", "agent-a.jsonl"))
+        try:
+            split = subagent.analyse([child])
+            self.assertEqual(split.orphans, 1)
+            self.assertEqual(split.inline_usd, 0.0)
+            self.assertGreater(split.side_usd, 0.0)
+        finally:
+            shutil.rmtree(sroot, ignore_errors=True)
 
 
 class TestOutputEncoding(unittest.TestCase):

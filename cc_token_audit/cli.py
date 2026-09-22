@@ -11,7 +11,8 @@ import os
 import sys
 import time
 
-from . import carry, i18n, live, pricing, report, simulate, verify, waste
+from . import (carry, i18n, live, pricing, report, simulate, subagent,
+               verify, waste)
 from .i18n import t
 from .loader import DEFAULT_ROOT, parse_session, walk
 
@@ -104,6 +105,23 @@ def cmd_audit(args):
     scen = simulate.aggregate([s.main for s in sessions],
                               rebuild_turns=args.rebuild)
 
+    # Subagents are a separate context, so they get their own comparison
+    # rather than a line in the waste table: the question is not whether they
+    # were wasteful but whether keeping that reading out of the main window
+    # was worth what the subagent itself cost.
+    mains, subs = subagent.split_sessions(sessions)
+    split = subagent.analyse(sessions)
+    sub_rows = []
+    for parent in mains:
+        kids = subs.get(parent.session_id)
+        if not kids:
+            continue
+        actual = sum(subagent.cost(turn) for k in kids for turn in k.turns)
+        inline, threads = subagent.inline_cost(parent, kids)
+        sub_rows.append((inline - actual, actual, inline, threads,
+                         len(parent.turns), parent.project))
+    sub_rows.sort(reverse=True)
+
     rows = sorted(
         ((a.actual_usd, len(a.turns),
           max((turn.ctx for turn in a.turns), default=0),
@@ -121,6 +139,13 @@ def cmd_audit(args):
                           "assumption": f.assumption} for f in finds],
             "scenarios": [{"label": s.label, "usd": s.usd,
                            "saved": s.saved, "pct": s.pct} for s in scen],
+            "subagents": {
+                "main_tokens": split.main_tokens, "main_usd": split.main_usd,
+                "side_tokens": split.side_tokens, "side_usd": split.side_usd,
+                "threads": split.threads, "parents": split.parents,
+                "inline_usd": split.inline_usd,
+                "avoided_usd": split.avoided_usd,
+            },
             "top_sessions": [{"usd": u, "turns": n, "peak_ctx": p,
                               "project": pr, "session": sid}
                              for u, n, p, pr, sid in rows[:args.top]],
@@ -133,6 +158,8 @@ def cmd_audit(args):
     out += report.by_model(models)
     out += report.attribution(charges, total_usd)
     out += report.findings_block(finds, total_usd)
+    if split.side_turns:
+        out += report.subagents(split, sub_rows)
     if scen:
         out += report.savings(scen, sum(len(s.main) for s in sessions),
                               sum(simulate.measured(s.main) for s in sessions))

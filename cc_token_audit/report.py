@@ -147,6 +147,47 @@ def savings(scenarios, threads=0, measured_usd=0.0):
     return out
 
 
+def subagents(split, rows):
+    """Main vs subagent, and what keeping that reading out of the main window
+    was worth. Not a waste category -- a structural comparison."""
+    out = [rule(t("sub_head")), ""]
+    out += ["  " + ln for ln in lines("sub_intro")]
+    out.append("")
+    for name, tok, usd, turns, share in (
+        (t("sub_main"), split.main_tokens, split.main_usd, split.main_turns,
+         1 - split.side_share),
+        (t("sub_side"), split.side_tokens, split.side_usd, split.side_turns,
+         split.side_share),
+    ):
+        out.append(f"  {pad(name, 12)}{pad(f'{tok:,}', 18, '>')} "
+                   f"{pad(money(usd), 11, '>')} {share * 100:5.1f}%  "
+                   f"{turns:>6} turns")
+    out.append("")
+    if split.side_usd:
+        out.append(f"  {pad(t('sub_actual'), 30)}{pad(money(split.side_usd), 11, '>')}")
+        out.append(f"  {pad(t('sub_inline'), 30)}{pad(money(split.inline_usd), 11, '>')}")
+        out.append("  " + "-" * 42)
+        out.append(f"  {pad(t('sub_avoided'), 30)}"
+                   f"{pad(money(split.avoided_usd), 11, '>')}"
+                   f"   ({split.multiple:.1f}x)")
+        out.append("")
+    if rows:
+        win = [r for r in rows if r[0] > 0]
+        lose = [r for r in rows if r[0] <= 0]
+        out += ["  " + ln for ln in lines("sub_floor")]
+        out.append("")
+        if win:
+            out.append("    " + t("sub_win", win=len(win),
+                                  win_turns=sum(r[4] for r in win) / len(win)))
+        if lose:
+            out.append("    " + t("sub_lose", lose=len(lose),
+                                  lose_turns=sum(r[4] for r in lose) / len(lose)))
+        out.append("")
+    out += ["  " + ln for ln in lines("sub_note")]
+    out.append("")
+    return out
+
+
 def top_sessions(rows, limit=10):
     out = [rule(t("top_head")), ""]
     out.append(f"  {pad(t('col_usd'), 10, '>')} {pad(t('col_turns'), 7, '>')} "

@@ -213,6 +213,30 @@ STRINGS = {
         "live.restart_soon": "重開撐 {n} 輪回本",
         "live.cache_cold": "快取 {mins} 分後過期，屆時重付 {usd}",
 
+        "sub_head": "子代理（subagent）",
+        "sub_main": "主執行緒",
+        "sub_side": "子代理",
+        "sub_intro": [
+            "子代理在自己的 context 視窗裡讀東西。它讀的檔案只在它活著的那幾輪被計費，",
+            "結束後就消失了，只有結論回到主執行緒。",
+            "同樣的工作如果直接在主執行緒做，每一筆工具結果都會進主視窗，",
+            "然後被之後的每一個 turn 重讀一次。",
+        ],
+        "sub_actual": "子代理實際花了",
+        "sub_inline": "同樣的工作直接做會花",
+        "sub_avoided": "因此省下",
+        "sub_floor": [
+            "但子代理不是無條件划算。它要重新建立自己的開場 context，",
+            "而那要付寫入價。所以它跟「重開 session」是同一條法則：",
+            "parent session 還很長才划算，快結束時反而更貴。",
+        ],
+        "sub_win": "划算的 parent session：{win} 個（平均 {win_turns:,.0f} turns）",
+        "sub_lose": "不划算的：{lose} 個（平均 {lose_turns:,.0f} turns）",
+        "sub_note": [
+            "註：反事實只算子代理自己讀進去的內容，不含它交回來的結論",
+            "（那段無論如何都會進主執行緒），所以這是下限而非最佳情況。",
+        ],
+
         "cli.verify": "自我驗證：內部恆等式 + 跟 ccusage 對帳",
         "verify.head": "驗證",
         "verify.internal": "內部檢查",
@@ -411,6 +435,32 @@ STRINGS = {
         "live.restart_now": "⚠ restart pays back in {n} turns",
         "live.restart_soon": "restart pays back in {n} turns",
         "live.cache_cold": "cache cold in {mins}m, then {usd} to rebuild",
+
+        "sub_head": "SUBAGENTS",
+        "sub_main": "main thread",
+        "sub_side": "subagents",
+        "sub_intro": [
+            "A subagent reads in its own context window. What it opens is billed",
+            "for the few turns it lives and is then gone; only its conclusion",
+            "returns. The same work done inline puts every tool result into the",
+            "main window, to be re-read on every remaining turn.",
+        ],
+        "sub_actual": "subagents actually cost",
+        "sub_inline": "the same work inline would cost",
+        "sub_avoided": "avoided",
+        "sub_floor": [
+            "Subagents are not unconditionally cheaper. Each re-establishes its",
+            "own opening context at the write rate, so they follow the same law",
+            "as restarting: worth it while the parent session has life left,",
+            "more expensive near its end.",
+        ],
+        "sub_win": "paid off in {win} parent sessions (avg {win_turns:,.0f} turns)",
+        "sub_lose": "cost more in {lose} (avg {lose_turns:,.0f} turns)",
+        "sub_note": [
+            "Note: the counterfactual counts only what the subagent read, not the",
+            "summary it returned (which enters the main thread either way), so",
+            "this is a floor rather than a best case.",
+        ],
 
         "cli.verify": "self-check: the internal identity, and totals vs ccusage",
         "verify.head": "VERIFY",

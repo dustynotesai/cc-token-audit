@@ -17,6 +17,10 @@ from dataclasses import dataclass, field
 
 DEFAULT_ROOT = os.path.join(os.path.expanduser("~"), ".claude", "projects")
 
+# Subagent transcripts are written to their own directory beside the parent
+# session, not interleaved into it, and carry the parent's id in `sessionId`.
+SUBAGENT_DIR = "subagents"
+
 # Rough chars-per-token for non-CJK text. CJK characters are counted as one
 # token each: a Chinese message is ~1 token per character, code is ~4 chars per
 # token, and sessions here mix both -- a flat divisor would blame code for
@@ -80,6 +84,10 @@ class Session:
     cwd: str = ""
     branch: str = ""
     turns: list = field(default_factory=list)
+
+    @property
+    def is_subagent(self):
+        return os.path.basename(os.path.dirname(self.path)) == SUBAGENT_DIR
 
     @property
     def main(self):
@@ -187,10 +195,25 @@ def _result_ok(block, tur):
     return not any(m in head for m in _EMPTY_RESULT_MARKERS)
 
 
+def project_of(path):
+    """Project a transcript belongs to.
+
+    Subagent transcripts live at
+        <project>/<parent-session-id>/subagents/agent-*.jsonl
+    so the directory holding them is literally named "subagents". Taking the
+    parent directory name would file every subagent in the whole machine under
+    one imaginary project; the real one is two levels up.
+    """
+    parent = os.path.dirname(path)
+    name = os.path.basename(parent)
+    if name == SUBAGENT_DIR:
+        return os.path.basename(os.path.dirname(os.path.dirname(parent)))
+    return name
+
+
 def parse_session(path, project=""):
     """Parse one .jsonl into a Session. Streams; never holds the whole file."""
-    sess = Session(path=path,
-                   project=project or os.path.basename(os.path.dirname(path)))
+    sess = Session(path=path, project=project or project_of(path))
     tools = {}          # tool_use_id -> (name, target)
     pending = []        # events entering context before the next assistant turn
     cur = None
@@ -304,7 +327,7 @@ def walk(root=None, project=None, since=None):
             if not fn.endswith(".jsonl"):
                 continue
             path = os.path.join(base, fn)
-            proj = os.path.basename(base)
+            proj = project_of(path)
             if project and project.lower() not in proj.lower():
                 continue
             try:
