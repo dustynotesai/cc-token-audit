@@ -195,6 +195,12 @@ STRINGS = {
         "err.no_sessions": "在 {root} 底下找不到任何 session",
         "err.no_match": "找不到符合 {q} 的 session",
         "err.bad_since": "--since {spec} 格式錯誤；請用 7d、4w、12h 這種寫法",
+
+        "cli.statusline": "給 Claude Code 狀態列用：即時顯示下一輪要花多少、何時該重開",
+        "live.per_turn": "每輪 {usd}",
+        "live.restart_now": "⚠ 重開撐 {n} 輪回本",
+        "live.restart_soon": "重開撐 {n} 輪回本",
+        "live.cache_cold": "快取 {mins} 分後過期，屆時重付 {usd}",
     },
 
     "en": {
@@ -356,6 +362,13 @@ STRINGS = {
         "err.no_sessions": "no sessions found under {root}",
         "err.no_match": "no session matching {q}",
         "err.bad_since": "bad --since {spec}; use forms like 7d, 4w, 12h",
+
+        "cli.statusline": "for the Claude Code status line: live cost per turn "
+                          "and when restarting pays off",
+        "live.per_turn": "{usd}/turn",
+        "live.restart_now": "⚠ restart pays back in {n} turns",
+        "live.restart_soon": "restart pays back in {n} turns",
+        "live.cache_cold": "cache cold in {mins}m, then {usd} to rebuild",
     },
 }
 

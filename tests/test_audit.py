@@ -12,7 +12,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cc_token_audit import carry, pricing, simulate, waste          # noqa: E402
+from cc_token_audit import carry, live, pricing, simulate, waste   # noqa: E402
 from cc_token_audit.loader import parse_session                      # noqa: E402
 
 
@@ -261,6 +261,61 @@ class TestSidechain(unittest.TestCase):
             self.assertEqual(sum(t.write for t in an.turns), 1000 + 7777 + 500)
         finally:
             os.unlink(path)
+
+
+class TestLiveStatusline(unittest.TestCase):
+    """The in-session signal. It renders on every keystroke-ish update, so it
+    must never raise and must never block."""
+
+    OPUS = {"id": "claude-opus-5", "display_name": "Opus 5"}
+
+    def _payload(self, ctx, transcript="", **cache):
+        return {"model": self.OPUS, "transcript_path": transcript,
+                "context_window": {"total_input_tokens": ctx,
+                                   "used_percentage": ctx / 10000,
+                                   "context_window_size": 1_000_000},
+                "prompt_cache": cache}
+
+    def test_breakeven_shrinks_as_context_grows(self):
+        rate = pricing.rate_for("claude-opus-5")
+        small = live.breakeven_turns(100_000, 54_000, rate)
+        large = live.breakeven_turns(500_000, 54_000, rate)
+        self.assertGreater(small, large)
+        self.assertAlmostEqual(small, 20 * 54_000 / 46_000, places=6)
+
+    def test_no_breakeven_below_the_standing_context(self):
+        rate = pricing.rate_for("claude-opus-5")
+        self.assertIsNone(live.breakeven_turns(40_000, 54_000, rate))
+        self.assertIsNone(live.breakeven_turns(0, 54_000, rate))
+
+    def test_renders_before_the_first_api_response(self):
+        out = live.render({"model": self.OPUS, "context_window": {}})
+        self.assertIn("Opus 5", out)
+        self.assertNotIn("$", out)
+
+    def test_survives_missing_and_null_fields(self):
+        for payload in ({}, {"model": None}, {"context_window": None},
+                        {"context_window": {"total_input_tokens": None,
+                                            "used_percentage": None}},
+                        {"prompt_cache": None, "context_window": {}}):
+            self.assertIsInstance(live.render(payload), str)
+
+    def test_warns_before_the_cache_goes_cold(self):
+        p = self._payload(300_000, warm=True, ttl="1h",
+                          expires_at=1000.0 + 300,
+                          recache_tokens_if_cold=300_000)
+        self.assertIn("$3.00", live.render(p, now=1000.0))
+
+    def test_no_cold_warning_when_the_cache_has_hours_left(self):
+        p = self._payload(300_000, warm=True, ttl="1h",
+                          expires_at=1000.0 + 3600,
+                          recache_tokens_if_cold=300_000)
+        self.assertNotIn("$3.00", live.render(p, now=1000.0))
+
+    def test_bad_stdin_yields_an_empty_line_not_a_crash(self):
+        import io
+        self.assertEqual(live.main(io.StringIO("not json")), "")
+        self.assertEqual(live.main(io.StringIO("[1,2,3]")), "")
 
 
 class TestOutputEncoding(unittest.TestCase):

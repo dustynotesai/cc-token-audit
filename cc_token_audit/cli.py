@@ -11,7 +11,7 @@ import os
 import sys
 import time
 
-from . import carry, i18n, pricing, report, simulate, waste
+from . import carry, i18n, live, pricing, report, simulate, waste
 from .i18n import t
 from .loader import DEFAULT_ROOT, parse_session, walk
 
@@ -214,6 +214,16 @@ def _preselect_lang(argv):
     return i18n.DEFAULT_LANG
 
 
+def cmd_statusline(args):
+    """Claude Code pipes session JSON in on stdin and prints whatever comes out.
+    It must stay fast and must never crash the status line, so any failure
+    degrades to an empty line rather than a traceback in the user's UI."""
+    try:
+        print(live.main(sys.stdin))
+    except Exception:
+        print("")
+
+
 def build_parser():
     # Shared options live on a parent so they work on either side of the
     # subcommand -- `audit --top 5` and `--top 5 audit` both read naturally.
@@ -247,6 +257,9 @@ def build_parser():
 
     b = sub.add_parser("baseline", parents=[common], help=t("cli.baseline"))
     b.set_defaults(func=cmd_baseline)
+
+    sl = sub.add_parser("statusline", parents=[common], help=t("cli.statusline"))
+    sl.set_defaults(func=cmd_statusline)
     return p
 
 
