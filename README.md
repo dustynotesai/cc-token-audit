@@ -182,6 +182,44 @@ Opus 5  ■■■■■■■■□□ 75%  750k  每輪 $0.375  ⚠ 重開撐 2
 
 ---
 
+## 想親手驗證？跑一個五輪的小例子
+
+真實 log 的數字太大，沒辦法用手驗。這個範例小到你可以在紙上算完：
+
+```bash
+python examples/make_demo.py
+cc-token-audit drill examples/demo/C--demo-project/demo0001.jsonl
+```
+
+```
+       美元    tokens   被重讀  進來的時機   是什麼
+     $0.120    10,000        4  turn 0       base
+     $0.057     4,976        3  turn 1       Read(file_0.py)
+     $0.055     4,976        2  turn 2       Read(file_1.py)
+     $0.052     4,976        1  turn 3       Read(file_2.py)
+     $0.050     4,976        0  turn 4       Read(file_3.py)
+```
+
+從兩個方向算，答案必須一樣：
+
+```
+逐 turn 加總實際的 cache_read：
+  0 + 10,000 + 15,000 + 20,000 + 25,000            = 70,000
+
+用攜帶成本反推：
+  10,000 × 4 = 40,000    ← 常駐 context，被後面四輪各讀一次
+   5,000 × 3 = 15,000    ← turn 1 讀的檔
+   5,000 × 2 = 10,000    ← turn 2 讀的檔
+   5,000 × 1 =  5,000    ← turn 3 讀的檔
+   5,000 × 0 =      0    ← turn 4 讀的檔，後面沒有 turn 了
+                ------
+                 70,000  ✓
+```
+
+對得起來，所以保真度 100.0%。
+
+---
+
 ## 為什麼需要這個工具
 
 現有工具（[ccusage](https://github.com/ccusage/ccusage) 和建構在它上面的那些
