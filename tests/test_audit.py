@@ -263,5 +263,34 @@ class TestSidechain(unittest.TestCase):
             os.unlink(path)
 
 
+class TestOutputEncoding(unittest.TestCase):
+    """Chinese is the default output language, and Windows consoles still
+    default to a legacy code page. Without forcing UTF-8 the tool aborts with
+    UnicodeEncodeError before printing anything."""
+
+    def test_report_survives_a_legacy_codepage(self):
+        import io
+
+        from cc_token_audit import cli, i18n
+        i18n.set_lang("zh-TW")
+        legacy = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+        real = sys.stdout
+        sys.stdout = legacy
+        try:
+            cli._force_utf8()
+            print(i18n.t("title"))
+            legacy.flush()
+        finally:
+            sys.stdout = real
+        self.assertEqual(legacy.encoding, "utf-8")
+
+    def test_every_key_exists_in_both_languages(self):
+        from cc_token_audit import i18n
+        zh = set(i18n.STRINGS["zh-TW"])
+        en = set(i18n.STRINGS["en"])
+        self.assertEqual(zh - en, set(), "keys missing from en")
+        self.assertEqual(en - zh, set(), "keys missing from zh-TW")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -14,13 +14,33 @@ logs and decomposes your cache-read tokens back onto the individual moments when
 something entered the context — a file read, a command's output, a failed grep —
 then multiplies each by how many turns it was then carried for.
 
-```
+## Install
+
+```bash
+pip install git+https://github.com/dustynotesai/cc-token-audit.git
 cc-token-audit audit
 ```
 
-No dependencies. Python 3.9+. Nothing leaves your machine.
+Or run it without installing anything:
+
+```bash
+git clone https://github.com/dustynotesai/cc-token-audit.git
+cd cc-token-audit
+python -m cc_token_audit audit
+```
+
+No dependencies. Python 3.9+. Nothing leaves your machine — it only reads
+`~/.claude/projects/` and prints to your terminal.
 
 Output defaults to Traditional Chinese; pass `--lang en` for English.
+
+<details>
+<summary>If <code>cc-token-audit</code> is not found after installing</summary>
+
+The console script goes into your Python `Scripts/` (Windows) or `bin/`
+directory, which may not be on `PATH`. `python -m cc_token_audit audit` always
+works and needs no PATH change.
+</details>
 
 ## The thing worth understanding
 

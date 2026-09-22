@@ -13,13 +13,33 @@
 某次讀檔、某條指令的輸出、某個搜尋不到東西的 grep——
 再乘上它之後被扛了幾個 turn。
 
-```
+## 安裝
+
+```bash
+pip install git+https://github.com/dustynotesai/cc-token-audit.git
 cc-token-audit audit
 ```
 
-零相依套件。Python 3.9+。所有資料都留在你自己的機器上。
+或者不安裝、直接跑：
+
+```bash
+git clone https://github.com/dustynotesai/cc-token-audit.git
+cd cc-token-audit
+python -m cc_token_audit audit
+```
+
+零相依套件。Python 3.9+。所有資料都留在你自己的機器上——
+它只會讀 `~/.claude/projects/`，然後印到你的終端機。
 
 輸出預設繁體中文，`--lang en` 可切換成英文。
+
+<details>
+<summary>如果安裝後找不到 <code>cc-token-audit</code> 指令</summary>
+
+console script 會被放進 Python 的 `Scripts/`（Windows）或 `bin/` 目錄，
+那個路徑不一定在你的 `PATH` 裡。
+`python -m cc_token_audit audit` 永遠可用，也不需要動 PATH。
+</details>
 
 ## 真正該理解的那件事
 

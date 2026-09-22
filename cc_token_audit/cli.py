@@ -250,7 +250,21 @@ def build_parser():
     return p
 
 
+def _force_utf8():
+    """Windows consoles still default to a legacy code page (cp1252, cp950),
+    which raises UnicodeEncodeError the moment Chinese output is printed. The
+    default output language is Chinese, so this is not optional. `errors` is set
+    so that an unmappable glyph degrades to a placeholder instead of aborting a
+    report the user has already waited for."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass        # not a reconfigurable text stream; nothing to do
+
+
 def main(argv=None):
+    _force_utf8()
     argv = list(sys.argv[1:] if argv is None else argv)
     i18n.set_lang(_preselect_lang(argv))
     parser = build_parser()
