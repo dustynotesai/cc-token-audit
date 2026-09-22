@@ -12,7 +12,15 @@ W = 78
 
 
 def money(x):
-    return f"${x:,.2f}"
+    """Two decimals reads naturally for most totals, but a light user's whole
+    history can sit under a dollar -- and a report of "$0.00" on every row looks
+    broken rather than cheap. Small amounts get the precision they need."""
+    a = abs(x)
+    if a >= 0.995 or a == 0:
+        return f"${x:,.2f}"
+    if a >= 0.01:
+        return f"${x:,.3f}"
+    return f"${x:,.5f}".rstrip("0")
 
 
 def rule(title=""):
